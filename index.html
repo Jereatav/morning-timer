@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <!-- Адаптация под мобильные экраны -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <!-- Режим PWA для iOS -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Утренний Таймер</title>
+
+    <!-- Подключаем красивый скругленный шрифт Nunito -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+
+    <style>
+        /* Базовые стили */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Nunito', -apple-system, BlinkMacSystemFont, "SF Pro Rounded", "Segoe UI", Roboto, sans-serif;
+            -webkit-user-select: none;
+        }
+
+        body {
+            background-color: #0d0f18; /* Глубокий ночной космос */
+            color: #ffffff;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            padding: 30px 20px;
+            text-align: center;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Холст для звездного неба и комет */
+        #spaceCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        /* Обертка интерфейса поверх холста */
+        .app-content {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            min-height: calc(100vh - 60px);
+        }
+
+        .header h1 {
+            font-size: 26px;
+            margin-bottom: 6px;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+        }
+
+        .header p {
+            font-size: 14px;
+            color: #a3a8c2;
+            font-weight: 600;
+        }
+
+        /* Минималистичная стеклянная карточка со временем */
+        .timer-badge {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            padding: 24px 44px;
+            border-radius: 28px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            margin: 20px 0;
+        }
+
+        .timer-display {
+            font-size: 56px;
+            font-weight: 900;
+            letter-spacing: 3px;
+            color: #ffffff;
+            text-shadow: 0 0 20px rgba(196, 147, 185, 0.4);
+        }
+
+        /* Карточка настроек времени */
+        .controls-card {
+            width: 100%;
+            max-width: 340px;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            padding: 20px;
+            border-radius: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+            transition: opacity 0.3s ease;
+        }
+
+        .control-row {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .row-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 14px;
+            font-weight: 700;
+            color: #e2e8f0;
+        }
+
+        /* Числовые поля ввода */
+        .number-input {
+            width: 65px;
+            padding: 6px 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(196, 147, 185, 0.3);
+            border-radius: 12px;
+            color: #ffffff;
+            font-size: 16px;
+            font-weight: 800;
+            text-align: center;
+            outline: none;
+            -moz-appearance: textfield;
+            transition: all 0.2s ease;
+        }
+
+        .number-input::-webkit-outer-spin-button,
+        .number-input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        .number-input:focus {
+            border-color: #c493b9;
+            background: rgba(196, 147, 185, 0.15);
+            box-shadow: 0 0 10px rgba(196, 147, 185, 0.4);
+        }
+
+        /* Стилизация ползунка (слайдера) под нежно-розовый цвет */
+        .custom-slider {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 8px;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.15);
+            outline: none;
+        }
+
+        .custom-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: #c493b9;
+            cursor: pointer;
+            box-shadow: 0 0 12px rgba(196, 147, 185, 0.8);
+            transition: transform 0.1s ease;
+        }
+
+        .custom-slider::-webkit-slider-thumb:active {
+            transform: scale(1.15);
+        }
+
+        /* Главная кнопка управления */
+        .main-btn {
+            width: 100%;
+            max-width: 340px;
+            padding: 18px 0;
+            border-radius: 20px;
+            border: none;
+            font-size: 18px;
+            font-weight: 800;
+            cursor: pointer;
+            color: #ffffff;
+            background: linear-gradient(135deg, #c493b9 0%, #a86f9b 100%);
+            box-shadow: 0 6px 20px rgba(196, 147, 185, 0.4);
+            transition: transform 0.1s ease, box-shadow 0.2s ease;
+            margin-top: 10px;
+        }
+
+        .main-btn:active {
+            transform: scale(0.98);
+        }
+
+        /* Состояние кнопки при остановке */
+        .main-btn.stop {
+            background: linear-gradient(135deg, #e06c75 0%, #be5059 100%);
+            box-shadow: 0 6px 20px rgba(224, 108, 117, 0.4);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Холст для звезд и комет -->
+    <canvas id="spaceCanvas"></canvas>
+
+    <div class="app-content">
+        <div class="header">
+            <h1>Утренний подъём</h1>
+            <p>Настрой время для пробуждения</p>
+        </div>
+
+        <!-- Минималистичный дисплей таймера на стеклянной плашке -->
+        <div class="timer-badge">
+            <div class="timer-display" id="timerDisplay">15:00</div>
+        </div>
+
+        <!-- Панель управления минутами и секундами -->
+        <div class="controls-card" id="controlsCard">
+            
+            <!-- Блок минут -->
+            <div class="control-row">
+                <div class="row-header">
+                    <label for="minutesInput">Минуты (0–60):</label>
+                    <input 
+                        type="number" 
+                        id="minutesInput" 
+                        class="number-input" 
+                        min="0" 
+                        max="60" 
+                        value="15"
+                        oninput="onMinutesInputChange(this.value)"
+                    >
+                </div>
+                <input 
+                    type="range" 
+                    id="minutesSlider" 
+                    class="custom-slider" 
+                    min="0" 
+                    max="60" 
+                    value="15" 
+                    oninput="onMinutesSliderChange(this.value)"
+                >
+            </div>
+
+            <!-- Блок секунд -->
+            <div class="control-row">
+                <div class="row-header">
+                    <label for="secondsInput">Секунды (0–59):</label>
+                    <input 
+                        type="number" 
+                        id="secondsInput" 
+                        class="number-input" 
+                        min="0" 
+                        max="59" 
+                        value="0"
+                        oninput="onSecondsInputChange(this.value)"
+                    >
+                </div>
+                <input 
+                    type="range" 
+                    id="secondsSlider" 
+                    class="custom-slider" 
+                    min="0" 
+                    max="59" 
+                    value="0" 
+                    oninput="onSecondsSliderChange(this.value)"
+                >
+            </div>
+
+        </div>
+
+        <!-- Кнопка действия -->
+        <button class="main-btn" id="actionBtn" onclick="toggleTimer()">Начать скроллинг</button>
+    </div>
+
+    <script>
+        // ==========================================================
+        // 1. СИМУЛЯЦИЯ ЗВЕЗДНОГО НЕБА И КОМЕТ (CANVAS)
+        // ==========================================================
+        const canvas = document.getElementById('spaceCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let width, height;
+        let stars = [];
+        let comets = [];
+
+        // Адаптация размера canvas под экран
+        function resizeCanvas() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+            initStars();
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+
+        // Генерация статичных мерцающих звезд
+        function initStars() {
+            stars = [];
+            const starCount = Math.floor((width * height) / 4500); // Оптимальная плотность звезд
+            for (let i = 0; i < starCount; i++) {
+                stars.push({
+                    x: Math.random() * width,
+                    y: Math.random() * height,
+                    radius: Math.random() * 1.4 + 0.3,
+                    alpha: Math.random() * 0.8 + 0.2,
+                    flickerSpeed: Math.random() * 0.02 + 0.005
+                });
+            }
+        }
+
+        // Класс кометы (падающей звезды)
+        class Comet {
+            constructor() {
+                this.reset();
+            }
+
+            reset() {
+                this.x = Math.random() * width * 1.2 - width * 0.1;
+                this.y = -50;
+                this.length = Math.random() * 90 + 60; // Длина хвоста
+                this.speed = Math.random() * 7 + 6;     // Скорость полета
+                this.angle = Math.PI / 4 + (Math.random() * 0.2 - 0.1); // Угол полета ~45 градусов
+                this.opacity = 1;
+                this.active = true;
+            }
+
+            update() {
+                this.x += Math.cos(this.angle) * this.speed;
+                this.y += Math.sin(this.angle) * this.speed;
+
+                // Угасание кометы при полете вниз
+                if (this.y > height * 0.7) {
+                    this.opacity -= 0.025;
+                }
+
+                if (this.opacity <= 0 || this.y > height + 100 || this.x > width + 100) {
+                    this.active = false;
+                }
+            }
+
+            draw() {
+                if (!this.active) return;
+
+                const tailX = this.x - Math.cos(this.angle) * this.length;
+                const tailY = this.y - Math.sin(this.angle) * this.length;
+
+                // Создаем градиент для хвоста кометы
+                const gradient = ctx.createLinearGradient(this.x, this.y, tailX, tailY);
+                gradient.addColorStop(0, `rgba(255, 255, 255, ${this.opacity})`);
+                gradient.addColorStop(0.3, `rgba(196, 147, 185, ${this.opacity * 0.8})`); // Нежно-розовый оттенок
+                gradient.addColorStop(1, 'rgba(196, 147, 185, 0)');
+
+                ctx.save();
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y);
+                ctx.lineTo(tailX, tailY);
+                ctx.strokeStyle = gradient;
+                ctx.lineWidth = 2.2;
+                ctx.lineCap = 'round';
+                ctx.stroke();
+
+                // Яркая точка на конце кометы
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, 2.5, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(255, 255, 255, ${this.opacity})`;
+                ctx.shadowColor = '#c493b9';
+                ctx.shadowBlur = 10;
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        // Периодическое появление комет со случайным интервалом
+        function scheduleNextComet() {
+            const nextDelay = Math.random() * 4000 + 2500; // От 2.5 до 6.5 секунд
+            setTimeout(() => {
+                comets.push(new Comet());
+                scheduleNextComet();
+            }, nextDelay);
+        }
+
+        // Главный цикл анимации звездного неба
+        function animateSpace() {
+            ctx.clearRect(0, 0, width, height);
+
+            // 1. Отрисовка мерцающих звезд
+            stars.forEach(star => {
+                star.alpha += star.flickerSpeed;
+                if (star.alpha > 1 || star.alpha < 0.2) {
+                    star.flickerSpeed = -star.flickerSpeed;
+                }
+
+                ctx.beginPath();
+                ctx.arc(star.x, star.y, star.radius, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(255, 255, 255, ${star.alpha})`;
+                ctx.fill();
+            });
+
+            // 2. Отрисовка комет
+            comets.forEach((comet, index) => {
+                comet.update();
+                comet.draw();
+                if (!comet.active) {
+                    comets.splice(index, 1);
+                }
+            });
+
+            requestAnimationFrame(animateSpace);
+        }
+
+        // Запуск анимации
+        resizeCanvas();
+        scheduleNextComet();
+        animateSpace();
+
+
+        // ==========================================================
+        // 2. ПЕРЕМЕННЫЕ СОСТОЯНИЯ ТАЙМЕРА
+        // ==========================================================
+        let selectedMinutes = 15;
+        let selectedSeconds = 0;
+        let totalTimeInSeconds = (15 * 60) + 0;
+        let timeRemaining = totalTimeInSeconds;
+        let timerInterval = null;
+        let isRunning = false;
+
+        let audioCtx = null;
+
+        // Элементы интерфейса
+        const timerDisplay = document.getElementById('timerDisplay');
+        const minutesInput = document.getElementById('minutesInput');
+        const minutesSlider = document.getElementById('minutesSlider');
+        const secondsInput = document.getElementById('secondsInput');
+        const secondsSlider = document.getElementById('secondsSlider');
+        const controlsCard = document.getElementById('controlsCard');
+        const actionBtn = document.getElementById('actionBtn');
+
+
+        // ==========================================================
+        // 3. ЗВУКОВОЙ СИГНАЛ ВЫКЛЮЧЕНИЯ (Web Audio API)
+        // ==========================================================
+        function initAudio() {
+            if (!audioCtx) {
+                const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                audioCtx = new AudioContextClass();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function playPleasantAlarm() {
+            initAudio();
+            if (!audioCtx) return;
+
+            const now = audioCtx.currentTime;
+
+            // Нисходящая гармония: E5 -> B4 -> G#4 -> E4
+            const notes = [
+                { freq: 659.25, startDelay: 0.00 },
+                { freq: 493.88, startDelay: 0.18 },
+                { freq: 415.30, startDelay: 0.36 },
+                { freq: 329.63, startDelay: 0.54 }
+            ];
+
+            const noteDuration = 1.9;
+
+            notes.forEach((note, index) => {
+                const noteStartTime = now + note.startDelay;
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(note.freq, noteStartTime);
+
+                gain.gain.setValueAtTime(0, noteStartTime);
+                const peakVolume = (index === notes.length - 1) ? 0.25 : 0.18;
+                gain.gain.linearRampToValueAtTime(peakVolume, noteStartTime + 0.04);
+                gain.gain.exponentialRampToValueAtTime(0.0001, noteStartTime + noteDuration);
+
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                osc.start(noteStartTime);
+                osc.stop(noteStartTime + noteDuration);
+            });
+        }
+
+
+        // ==========================================================
+        // 4. ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ И ОБРАБОТЧИКИ
+        // ==========================================================
+        function formatDisplay(secondsTotal) {
+            const mins = Math.floor(secondsTotal / 60);
+            const secs = secondsTotal % 60;
+            return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+        }
+
+        function updateDisplayFromState() {
+            totalTimeInSeconds = (selectedMinutes * 60) + selectedSeconds;
+            timeRemaining = totalTimeInSeconds;
+            timerDisplay.textContent = formatDisplay(timeRemaining);
+        }
+
+        function onMinutesSliderChange(val) {
+            if (isRunning) return;
+            selectedMinutes = parseInt(val, 10) || 0;
+            minutesInput.value = selectedMinutes;
+            updateDisplayFromState();
+        }
+
+        function onMinutesInputChange(val) {
+            if (isRunning) return;
+            let num = parseInt(val, 10);
+            if (isNaN(num)) num = 0;
+            if (num < 0) num = 0;
+            if (num > 60) num = 60;
+
+            selectedMinutes = num;
+            minutesSlider.value = num;
+            updateDisplayFromState();
+        }
+
+        function onSecondsSliderChange(val) {
+            if (isRunning) return;
+            selectedSeconds = parseInt(val, 10) || 0;
+            secondsInput.value = selectedSeconds;
+            updateDisplayFromState();
+        }
+
+        function onSecondsInputChange(val) {
+            if (isRunning) return;
+            let num = parseInt(val, 10);
+            if (isNaN(num)) num = 0;
+            if (num < 0) num = 0;
+            if (num > 59) num = 59;
+
+            selectedSeconds = num;
+            secondsSlider.value = num;
+            updateDisplayFromState();
+        }
+
+
+        // ==========================================================
+        // 5. ЛОГИКА ТАЙМЕРА
+        // ==========================================================
+        function toggleTimer() {
+            initAudio();
+
+            if (isRunning) {
+                clearInterval(timerInterval);
+                isRunning = false;
+                
+                timeRemaining = totalTimeInSeconds;
+                timerDisplay.textContent = formatDisplay(timeRemaining);
+
+                actionBtn.textContent = 'Начать скроллинг';
+                actionBtn.classList.remove('stop');
+                controlsCard.style.opacity = '1';
+                setControlsDisabled(false);
+            } else {
+                if (totalTimeInSeconds <= 0) {
+                    alert('Пожалуйста, установите время больше 0 секунд.');
+                    return;
+                }
+
+                isRunning = true;
+                actionBtn.textContent = 'Сбросить';
+                actionBtn.classList.add('stop');
+
+                controlsCard.style.opacity = '0.35';
+                setControlsDisabled(true);
+
+                timerInterval = setInterval(() => {
+                    timeRemaining--;
+                    timerDisplay.textContent = formatDisplay(timeRemaining);
+
+                    if (timeRemaining <= 0) {
+                        clearInterval(timerInterval);
+                        onTimerComplete();
+                    }
+                }, 1000);
+            }
+        }
+
+        function setControlsDisabled(disabled) {
+            minutesInput.disabled = disabled;
+            minutesSlider.disabled = disabled;
+            secondsInput.disabled = disabled;
+            secondsSlider.disabled = disabled;
+        }
+
+        function onTimerComplete() {
+            playPleasantAlarm();
+            toggleTimer();
+
+            setTimeout(() => {
+                window.location.href = "shortcuts://run-shortcut?name=LockScreenNow";
+            }, 2500);
+        }
+    </script>
+</body>
+</html>
